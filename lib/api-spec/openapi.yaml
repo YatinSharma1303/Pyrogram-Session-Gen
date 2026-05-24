@@ -1,0 +1,175 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Pyrogram String Session Generator API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: session
+    description: Telegram session generation
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /session/start:
+    post:
+      operationId: startSession
+      tags: [session]
+      summary: Start session generation
+      description: Initiates the Telegram login by sending OTP to the phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionStart"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionStarted"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /session/verify:
+    post:
+      operationId: verifySession
+      tags: [session]
+      summary: Verify OTP code
+      description: Verifies the OTP and returns the string session (or indicates 2FA is needed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionVerify"
+      responses:
+        "200":
+          description: Session verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /session/2fa:
+    post:
+      operationId: verify2FA
+      tags: [session]
+      summary: Complete 2FA verification
+      description: Submits the 2FA password to finish session generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Session2FA"
+      responses:
+        "200":
+          description: 2FA verified, session ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    SessionStart:
+      type: object
+      required: [api_id, api_hash, phone_number]
+      properties:
+        api_id:
+          type: integer
+          description: Telegram API ID from my.telegram.org
+        api_hash:
+          type: string
+          description: Telegram API Hash from my.telegram.org
+        phone_number:
+          type: string
+          description: Phone number in international format (e.g. +1234567890)
+    SessionStarted:
+      type: object
+      required: [session_id, phone_code_hash]
+      properties:
+        session_id:
+          type: string
+          description: Temporary session ID to use in subsequent requests
+        phone_code_hash:
+          type: string
+          description: Hash returned by Telegram for OTP verification
+    SessionVerify:
+      type: object
+      required: [session_id, phone_code]
+      properties:
+        session_id:
+          type: string
+          description: Session ID from startSession
+        phone_code:
+          type: string
+          description: OTP code received via Telegram
+    Session2FA:
+      type: object
+      required: [session_id, password]
+      properties:
+        session_id:
+          type: string
+          description: Session ID from startSession
+        password:
+          type: string
+          description: Two-factor authentication password
+    SessionResult:
+      type: object
+      required: [needs_2fa]
+      properties:
+        needs_2fa:
+          type: boolean
+          description: Whether 2FA password is required
+        string_session:
+          type: ["string", "null"]
+          description: The generated Pyrogram string session (null if needs_2fa is true)
+        hint:
+          type: ["string", "null"]
+          description: 2FA password hint if needs_2fa is true
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Error message
